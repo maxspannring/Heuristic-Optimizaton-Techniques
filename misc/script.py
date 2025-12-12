@@ -1,4 +1,4 @@
-# does everything as in main.ipynb, but as a python script instead og a jupyter notebook, so that we can run it on the cluster more easily
+# does everything as in 1.ipynb, but as a python script instead og a jupyter notebook, so that we can run it on the cluster more easily
 
 # === IMPORTS ===
 from dataclasses import dataclass
@@ -272,4 +272,4 @@ for file in [relevant_files[0]]:
     instance = Instance(file)
     solution = beam_search(instance, 50)
     #solution = beam_search(instance, 3)
-    save_solution(file, solution, "solutions_deterministic_construction_heuristic")
+    save_solution(file, solution, "../solutions/solutions_deterministic_construction_heuristic")
