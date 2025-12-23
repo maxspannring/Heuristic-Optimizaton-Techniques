@@ -187,3 +187,23 @@ def nearest_neighbor_heuristic(instance):
                 current_vehicle_capacity[k] -= nearest_drop_off_location["demand"]  # freeing some loading capacity
                 n_served += 1  # we have succesfully completed one request!
     return routes
+
+
+def capacity_feasible(instance, route):
+    """Check capacity along route."""
+    load = 0
+    for idx in route:
+        #idx = idx - 1
+        if idx <= instance.n:    # pickup
+            load += instance.requests[idx - 1]["demand"] # fucking off-by-one
+            #print(f"Picking up load for idx {idx}, capacity is now at {load}")
+            if load > instance.C:
+                #print("Load too high!!")
+                return False
+        else:                   # dropoff
+            #print(f"(real) index {real} (idx: {idx}) has demand {instance.requests[real]["demand"]} while current load is {load}")
+            load -= instance.requests[idx - instance.n - 1]["demand"]
+            if load < 0:
+                #print("Load below zero!!")
+                return False
+    return True
