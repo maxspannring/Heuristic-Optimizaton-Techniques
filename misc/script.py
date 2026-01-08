@@ -1,4 +1,4 @@
-# does everything as in 1.ipynb, but as a python script instead og a jupyter notebook, so that we can run it on the cluster more easily
+# does everything as in Assignment1.ipynb, but as a python script instead og a jupyter notebook, so that we can run it on the cluster more easily
 
 # === IMPORTS ===
 from dataclasses import dataclass
