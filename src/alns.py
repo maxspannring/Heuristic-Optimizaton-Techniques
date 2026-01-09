@@ -193,6 +193,60 @@ def regret_3_repair(solution, max_gap = 5):
         route_idx = solution.routes.index(best_route)
         solution.request_to_route[best_req] = route_idx
 
+def regret_2_repair(solution, max_gap=5):
+    while len(solution.unserved_requests) > solution.instance.n - solution.instance.gamma:
+
+        best_req = None
+        best_regret = -float("inf")
+        best_route = None
+        best_p = None
+        best_d = None
+
+        for req in solution.unserved_requests:
+            costs = []
+
+            demand = solution.instance.requests[req - 1]["demand"]
+
+            for route in solution.routes:
+                L = len(route.nodes)
+                load_profile = route.load_profile
+                load_profile.append(0)
+
+                for p in range(L + 1):
+                    if load_profile[p] + demand > solution.instance.C:
+                        continue
+
+                    for d in range(p + 1, min(p + max_gap, L + 2)):
+                        delta = route.try_insert_request(req, p, d)
+                        if delta is not None:
+                            costs.append((delta, route, p, d))
+
+            # regret-2 requires at least two feasible insertions
+            if len(costs) < 2:
+                continue
+
+            costs.sort(key=lambda x: x[0])
+
+            c1 = costs[0][0]
+            c2 = costs[1][0]
+            regret = c2 - c1
+
+            if regret > best_regret:
+                best_regret = regret
+                best_req = req
+                best_route = costs[0][1]
+                best_p = costs[0][2]
+                best_d = costs[0][3]
+
+        if best_req is None:
+            raise Exception("No feasible insertion found in regret-2 repair")
+
+        best_route.insert_request(best_req, best_p, best_d)
+        solution.unserved_requests.remove(best_req)
+        route_idx = solution.routes.index(best_route)
+        solution.request_to_route[best_req] = route_idx
+
+
 
 class OperatorPool:
     def __init__(self, operators, min_weight=1e-6):
@@ -264,7 +318,7 @@ def alns(instance, initial_solution, params, iters=100, log_file="alns_log.csv")
 
     repair_ops = OperatorPool([
         lambda s: greedy_repair(s, max_gap=params.max_gap),
-        lambda s: regret_3_repair(s, max_gap=params.max_gap),
+        lambda s: regret_2_repair(s, max_gap=params.max_gap), # not regret_3_repair
     ])
 
     current = initial_solution
@@ -338,6 +392,6 @@ def alns(instance, initial_solution, params, iters=100, log_file="alns_log.csv")
 
             if it % 10 == 0:
                 destroy_ops.adapt()
-                repair_ops.adapt()
+                repair_ops.adapt(gamma=params.rho)
                 T *= params.cooling
     return best

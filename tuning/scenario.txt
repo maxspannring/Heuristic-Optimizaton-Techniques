@@ -1,0 +1,8 @@
+maxTime = 36000           # 10 hours
+seed = 1090
+trainInstancesFile = "instances.txt"
+targetRunner = "target_runner"
+deterministic = 0
+nbIterations = 3
+elitist = 1
+logFile = "irace1.log"
