@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 def plot_objective_vs_iteration(df):
     iterations = df["iteration"]
@@ -113,5 +114,72 @@ def plot_operator_usage_combined(df, window=50):
     plt.ylim(0, 100)
     plt.legend(ncol=2)
     plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+
+def scaling_plot():
+    # Load data
+    df = pd.read_csv("src/scaling_results.csv")
+
+    # Aggregate per instance size
+    agg = (
+        df
+        .groupby("n")["runtime_sec"]
+        .agg(["mean", "min", "max"])
+        .reset_index()
+    )
+
+    # === Fit power-law model T(n) = a * n^alpha ===
+    n_vals = agg["n"].values
+    mean_vals = agg["mean"].values
+
+    log_n = np.log(n_vals)
+    log_T = np.log(mean_vals)
+
+    alpha, log_a = np.polyfit(log_n, log_T, 1)
+    a = np.exp(log_a)
+
+    print(f"Fitted model: T(n) ≈ {a:.3e} · n^{alpha:.3f}")
+
+    # Generate smooth fit line
+    n_fit = np.linspace(n_vals.min(), n_vals.max(), 300)
+    T_fit = a * n_fit ** alpha
+
+    # === Plot ===
+    plt.figure(figsize=(10, 6))
+
+    # Error bars (mean ± min/max)
+    yerr = [
+        agg["mean"] - agg["min"],
+        agg["max"] - agg["mean"]
+    ]
+
+    plt.errorbar(
+        agg["n"],
+        agg["mean"],
+        yerr=yerr,
+        fmt="o",
+        capsize=4,
+        label="Measured runtime (mean ± min/max)"
+    )
+
+    # Fitted scaling curve
+    plt.plot(
+        n_fit,
+        T_fit,
+        "--",
+        linewidth=2,
+        label=fr"Fit: $T(n) \propto n^{{{alpha:.2f}}}$"
+    )
+
+    # plt.xscale("log")
+    plt.yscale("log")
+
+    plt.xlabel("Instance size n")
+    plt.ylabel("Runtime (seconds)")
+    plt.title("ALNS Runtime Scaling with Instance Size")
+    plt.legend()
+    plt.grid(True, which="both")
     plt.tight_layout()
     plt.show()
