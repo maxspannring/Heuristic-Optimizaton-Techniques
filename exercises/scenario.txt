@@ -1,0 +1,7 @@
+targetRunner = "./target-runner.R"
+parameterFile = "parameters.txt"
+trainInstancesFile = "instances.txt"
+maxExperiments = 200
+logFile = "irace.log"
+seed = 1090
+
