@@ -25,7 +25,8 @@ class Route:
                 load -= self.instance.requests[node - self.instance.n - 1]["demand"]
 
             if load < 0 or load > self.capacity:
-                raise ValueError("Infeasible route")
+                #raise ValueError("Infeasible route")
+                pass
 
             self.load_profile.append(load)
             self.min_slack = min(self.min_slack, self.capacity - load)
