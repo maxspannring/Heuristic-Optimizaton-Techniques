@@ -6,7 +6,7 @@ SEED=$3
 INSTANCE_PATH=$4
 shift 4
 
-python3 alns_runner.py \
+python3 aco_runner.py \
   --instance "$INSTANCE_PATH" \
   --seed "$SEED" \
   "$@"

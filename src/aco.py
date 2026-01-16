@@ -135,6 +135,6 @@ class FastUltraACO:
                 self.pheromones = (self.pheromones + self.t_max) / 2
                 self.stagnation_counter = 0
 
-            if i % 10 == 0:
-                print(f"Iter {i}: Cost {global_best.total_cost:.2f}, Fairness {global_best.fairness:.3f}")
+            #if i % 10 == 0:
+                #print(f"Iter {i}: Cost {global_best.total_cost:.2f}, Fairness {global_best.fairness:.3f}")
         return global_best
