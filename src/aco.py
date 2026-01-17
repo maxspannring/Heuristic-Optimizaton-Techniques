@@ -1,8 +1,11 @@
 import numpy as np
 import random
 import copy
+import csv
+import time
 from src.solution import Solution
 from src.misc import a, capacity_feasible
+
 
 class FastUltraACO:
     def __init__(self, instance, alpha=1.0, beta=5.0, rho=0.05, m_ants=20, cand_size=20):
@@ -40,7 +43,8 @@ class FastUltraACO:
         d = 0
         curr = self.instance.depot
         for n in nodes:
-            loc = self.instance.requests[n-1]["pick_up"] if n <= self.n else self.instance.requests[n-self.n-1]["drop_off"]
+            loc = self.instance.requests[n - 1]["pick_up"] if n <= self.n else self.instance.requests[n - self.n - 1][
+                "drop_off"]
             d += a(curr, loc)
             curr = loc
         return d + a(curr, self.instance.depot)
@@ -64,9 +68,10 @@ class FastUltraACO:
             for k in range(self.instance.n_k):
                 if served_count < self.instance.gamma and unserved:
                     cands = sorted(list(unserved),
-                                   key=lambda r: a(curr_locs[k], self.instance.requests[r-1]["pick_up"]))[:self.cand_size]
+                                   key=lambda r: a(curr_locs[k], self.instance.requests[r - 1]["pick_up"]))[
+                        :self.cand_size]
                     for r in cands:
-                        if capacities[k] + self.instance.requests[r-1]["demand"] <= self.instance.C:
+                        if capacities[k] + self.instance.requests[r - 1]["demand"] <= self.instance.C:
                             possible_moves.append(('pickup', k, r))
                 for r in carrying[k]:
                     possible_moves.append(('dropoff', k, r))
@@ -74,67 +79,120 @@ class FastUltraACO:
             if not possible_moves: break
             vals = []
             for action, v_idx, req_id in possible_moves:
-                target = self.instance.requests[req_id-1]["pick_up"] if action == 'pickup' else self.instance.requests[req_id-1]["drop_off"]
+                target = self.instance.requests[req_id - 1]["pick_up"] if action == 'pickup' else \
+                self.instance.requests[req_id - 1]["drop_off"]
                 tau = self.pheromones[curr_nodes[v_idx]][req_id] if action == 'pickup' else self.t_max
-                penalty = 1.0 / (1.0 + max(0, v_dist[v_idx] - avg_dist)**2.5)
+                penalty = 1.0 / (1.0 + max(0, v_dist[v_idx] - avg_dist) ** 2.5)
                 eta = (1.0 / max(a(curr_locs[v_idx], target), 1)) * penalty
-                vals.append((tau**self.alpha) * (eta**self.beta))
+                vals.append((tau ** self.alpha) * (eta ** self.beta))
 
             choice = random.choices(possible_moves, weights=vals, k=1)[0]
             action, v_idx, req_id = choice
-            target_loc = self.instance.requests[req_id-1]["pick_up"] if action == 'pickup' else self.instance.requests[req_id-1]["drop_off"]
+            target_loc = self.instance.requests[req_id - 1]["pick_up"] if action == 'pickup' else \
+            self.instance.requests[req_id - 1]["drop_off"]
             v_dist[v_idx] += a(curr_locs[v_idx], target_loc)
 
             if action == 'pickup':
-                routes_nodes[v_idx].append(req_id); unserved.remove(req_id); carrying[v_idx].append(req_id)
-                capacities[v_idx] += self.instance.requests[req_id-1]["demand"]
+                routes_nodes[v_idx].append(req_id);
+                unserved.remove(req_id);
+                carrying[v_idx].append(req_id)
+                capacities[v_idx] += self.instance.requests[req_id - 1]["demand"]
                 curr_nodes[v_idx], curr_locs[v_idx] = req_id, target_loc
             else:
-                routes_nodes[v_idx].append(req_id + self.n); carrying[v_idx].remove(req_id)
-                capacities[v_idx] -= self.instance.requests[req_id-1]["demand"]
-                curr_locs[v_idx] = target_loc; served_count += 1
+                routes_nodes[v_idx].append(req_id + self.n);
+                carrying[v_idx].remove(req_id)
+                capacities[v_idx] -= self.instance.requests[req_id - 1]["demand"]
+                curr_locs[v_idx] = target_loc;
+                served_count += 1
 
         sol.load_from_arrays(routes_nodes)
         return sol
 
-    def run(self, iterations=100):
+    def run(self, iterations=100, log_file="aco_log.csv"):
         global_best = None
-        for i in range(iterations):
-            # 1. Ants construct raw solutions
-            ants = [self.construct_solution() for _ in range(self.m_ants)]
-            valid = [s for s in ants if s.is_feasible()]
-            if not valid: continue
 
-            # 2. Find the best ant of THIS iteration
-            it_best = min(valid, key=lambda s: s.total_cost)
+        # Open CSV file for logging
+        with open(log_file, mode="w", newline="") as f:
+            writer = csv.writer(f)
 
-            # 3. Apply Local Search ONLY to the iteration best (Saves massive time)
-            refined_routes = []
-            for route in it_best.routes:
-                refined_routes.append(self.local_search_2opt(route.nodes))
-            it_best.load_from_arrays(refined_routes)
+            # CSV header
+            writer.writerow([
+                "iteration",
+                "objective",
+                "best_objective",
+                "num_valid_ants",
+                "new_best",
+                "stagnation",
+                "time_sec",
+                "avg_pheromone"
+            ])
 
-            # 4. Update Global Best
-            if global_best is None or it_best.total_cost < global_best.total_cost:
-                global_best = it_best.copy()
-                self.stagnation_counter = 0
-            else:
-                self.stagnation_counter += 1
+            for i in range(iterations):
+                t0 = time.perf_counter()
 
-            # 5. MMAS Pheromone Update
-            self.pheromones = np.clip(self.pheromones * (1 - self.rho), self.t_min, self.t_max)
-            reward = 3000.0 / (global_best.total_cost + 1)
-            for route in global_best.routes:
-                prev = 0
-                for node in route.nodes:
-                    if node <= self.n:
-                        self.pheromones[prev][node] = min(self.t_max, self.pheromones[prev][node] + reward)
-                        prev = node
+                # 1. Ants construct raw solutions
+                ants = [self.construct_solution() for _ in range(self.m_ants)]
+                valid = [s for s in ants if s.is_feasible()]
 
-            if self.stagnation_counter > 20:
-                self.pheromones = (self.pheromones + self.t_max) / 2
-                self.stagnation_counter = 0
+                if not valid:
+                    elapsed = time.perf_counter() - t0
+                    # Log iteration with no valid solutions
+                    writer.writerow([
+                        i,
+                        global_best.total_cost if global_best else "NA",
+                        global_best.total_cost if global_best else "NA",
+                        0,
+                        False,
+                        self.stagnation_counter,
+                        elapsed,
+                        np.mean(self.pheromones)
+                    ])
+                    continue
 
-            #if i % 10 == 0:
-                #print(f"Iter {i}: Cost {global_best.total_cost:.2f}, Fairness {global_best.fairness:.3f}")
+                # 2. Find the best ant of THIS iteration
+                it_best = min(valid, key=lambda s: s.total_cost)
+
+                # 3. Apply Local Search ONLY to the iteration best (Saves massive time)
+                refined_routes = []
+                for route in it_best.routes:
+                    refined_routes.append(self.local_search_2opt(route.nodes))
+                it_best.load_from_arrays(refined_routes)
+
+                # 4. Update Global Best
+                new_best = False
+                if global_best is None or it_best.total_cost < global_best.total_cost:
+                    global_best = it_best.copy()
+                    self.stagnation_counter = 0
+                    new_best = True
+                else:
+                    self.stagnation_counter += 1
+
+                # 5. MMAS Pheromone Update
+                self.pheromones = np.clip(self.pheromones * (1 - self.rho), self.t_min, self.t_max)
+                reward = 3000.0 / (global_best.total_cost + 1)
+                for route in global_best.routes:
+                    prev = 0
+                    for node in route.nodes:
+                        if node <= self.n:
+                            self.pheromones[prev][node] = min(self.t_max, self.pheromones[prev][node] + reward)
+                            prev = node
+
+                if self.stagnation_counter > 20:
+                    self.pheromones = (self.pheromones + self.t_max) / 2
+                    self.stagnation_counter = 0
+
+                elapsed = time.perf_counter() - t0
+
+                # Write CSV row
+                writer.writerow([
+                    i,
+                    it_best.total_cost,
+                    global_best.total_cost,
+                    len(valid),
+                    new_best,
+                    self.stagnation_counter,
+                    elapsed,
+                    np.mean(self.pheromones)
+                ])
+
         return global_best

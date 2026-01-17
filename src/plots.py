@@ -183,3 +183,165 @@ def scaling_plot():
     plt.grid(True, which="both")
     plt.tight_layout()
     plt.show()
+
+
+
+def plot_algorithm_comparison(csv_path):
+    """
+    Creates two side-by-side plots:
+    1) Objective value (mean ± min/max)
+    2) Runtime in seconds (mean ± min/max)
+
+    X-axis: Algorithm (BeamSearch, ACO, ALNS)
+    """
+
+    # -------------------------
+    # Load and sanitize data
+    # -------------------------
+    df = pd.read_csv(csv_path)
+    df.columns = df.columns.str.strip()
+
+    # Ensure consistent ordering
+    algorithms = ["BeamSearch", "ACO", "ALNS"]
+
+    # -------------------------
+    # Aggregate statistics
+    # -------------------------
+    agg = (
+        df
+        .groupby("algorithm")
+        .agg(
+            objective_mean=("objective", "mean"),
+            objective_min=("objective", "min"),
+            objective_max=("objective", "max"),
+            runtime_mean=("runtime_sec", "mean"),
+            runtime_min=("runtime_sec", "min"),
+            runtime_max=("runtime_sec", "max"),
+        )
+        .reindex(algorithms)
+        .reset_index()
+    )
+
+    x = np.arange(len(algorithms))
+
+    # -------------------------
+    # Create figure
+    # -------------------------
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+    # ==========================================================
+    # Plot 1: Objective score
+    # ==========================================================
+    obj_yerr = [
+        agg["objective_mean"] - agg["objective_min"],
+        agg["objective_max"] - agg["objective_mean"],
+    ]
+
+    axes[0].errorbar(
+        x,
+        agg["objective_mean"],
+        yerr=obj_yerr,
+        fmt="o",
+        capsize=5
+    )
+
+    axes[0].set_xticks(x)
+    axes[0].set_xticklabels(algorithms)
+    axes[0].set_ylabel("Objective value")
+    axes[0].set_title("Objective score per algorithm")
+    axes[0].grid(True)
+
+    # ==========================================================
+    # Plot 2: Runtime
+    # ==========================================================
+    time_yerr = [
+        agg["runtime_mean"] - agg["runtime_min"],
+        agg["runtime_max"] - agg["runtime_mean"],
+    ]
+
+    axes[1].errorbar(
+        x,
+        agg["runtime_mean"],
+        yerr=time_yerr,
+        fmt="o",
+        capsize=5
+    )
+
+    axes[1].set_xticks(x)
+    axes[1].set_xticklabels(algorithms)
+    axes[1].set_ylabel("Runtime (seconds)")
+    axes[1].set_title("Runtime per algorithm")
+    axes[1].grid(True)
+
+    # -------------------------
+    # Layout
+    # -------------------------
+    plt.tight_layout()
+    plt.show()
+
+
+
+def plot_algorithm_boxplots(csv_path):
+    """
+    Creates two side-by-side boxplots:
+    1) Objective values per algorithm
+    2) Runtime per algorithm
+
+    X-axis: BeamSearch, ACO, ALNS
+    """
+
+    # -------------------------
+    # Load data
+    # -------------------------
+    df = pd.read_csv(csv_path)
+    df.columns = df.columns.str.strip()
+
+    algorithms = ["BeamSearch", "ACO", "ALNS"]
+
+    # -------------------------
+    # Prepare data for boxplots
+    # -------------------------
+    objective_data = [
+        df[df["algorithm"] == algo]["objective"].values
+        for algo in algorithms
+    ]
+
+    runtime_data = [
+        df[df["algorithm"] == algo]["runtime_sec"].values
+        for algo in algorithms
+    ]
+
+    # -------------------------
+    # Create figure
+    # -------------------------
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+    # ==================================================
+    # Boxplot 1: Objective values
+    # ==================================================
+    axes[0].boxplot(
+        objective_data,
+        labels=algorithms,
+        showfliers=True
+    )
+    axes[0].set_title("Objective value per algorithm")
+    axes[0].set_ylabel("Objective value")
+    axes[0].grid(True)
+
+    # ==================================================
+    # Boxplot 2: Runtime
+    # ==================================================
+    axes[1].boxplot(
+        runtime_data,
+        labels=algorithms,
+        showfliers=True
+    )
+    axes[1].set_title("Runtime per algorithm")
+    axes[1].set_ylabel("Runtime (seconds)")
+    axes[1].grid(True)
+
+    # -------------------------
+    # Layout
+    # -------------------------
+    plt.tight_layout()
+    plt.show()
