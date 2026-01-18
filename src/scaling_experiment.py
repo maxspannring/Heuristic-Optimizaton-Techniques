@@ -13,8 +13,8 @@ sys.path.insert(0, PROJECT_ROOT)
 
 from instance import Instance
 from solution import Solution
-from alns import *
 from misc import *
+from aco import FastUltraACO   # <-- CHECK import path
 
 # -------------------------
 # Experiment configuration
@@ -23,22 +23,21 @@ from misc import *
 SIZES = [50, 100, 200, 500, 1000, 2000]
 INSTANCES_PER_SIZE = 3
 RUNS_PER_INSTANCE = 3
-ITERS = 100
+ACO_ITERS = 50                  # <-- CHANGE if you want longer runs
 SEED_BASE = 1090
 
-BASE_INSTANCE_DIR = Path("../instances")  # root containing 50/, 100/, ...
-OUTPUT_FILE = "scaling_results.csv"
+BASE_INSTANCE_DIR = Path("../instances")
+OUTPUT_FILE = "scaling_results_aco.csv"
 
-ALNS_PARAMS = dict(
-    T0=10,
-    cooling=0.975,
-    destroy_fraction=7,
-    rho=0.25,
-    reward_best=7,
-    reward_accept=0,
-    reward_reject=-2,
-    regret_k=3,
-    max_gap=7
+# -------------------------
+# ACO parameters (FIXED)
+# -------------------------
+ACO_PARAMS = dict(
+    alpha=2.0,
+    beta=6.0,
+    rho=0.1,
+    m_ants=20,
+    cand_size=30
 )
 
 # -------------------------
@@ -48,16 +47,11 @@ ALNS_PARAMS = dict(
 def sample_test_instances(n):
     test_dir = BASE_INSTANCE_DIR / str(n) / "test"
 
-    # --- diagnostics ---
-    #print(f"Checking path: {test_dir.resolve()}")
-    #print(f"Exists: {test_dir.exists()}")
-    #print(f"Is directory: {test_dir.is_dir()}")
-
     if not test_dir.exists():
         raise FileNotFoundError(f"Directory does not exist: {test_dir}")
 
     instances = list(test_dir.glob("*.txt"))
-    print(f"Found {len(instances)} instance files")
+    print(f"[n={n}] Found {len(instances)} test instances")
 
     if len(instances) < INSTANCES_PER_SIZE:
         raise RuntimeError(
@@ -68,27 +62,28 @@ def sample_test_instances(n):
     return random.sample(instances, INSTANCES_PER_SIZE)
 
 
-def run_single_alns(instance_path, seed):
+def run_single_aco(instance_path, seed):
+    """
+    Runs ACO once on a single instance.
+    Returns runtime, initial_cost, final_cost
+    """
+
     random.seed(seed)
+    # np.random.seed(seed)  # <-- ENABLE if you want deterministic pheromone init
 
     instance = Instance(str(instance_path))
-    initial = Solution(instance)
 
+    # Initial solution only for measuring improvement
+    initial = Solution(instance)
     routes_array = nearest_neighbor_heuristic(instance)
     initial.load_from_arrays(routes_array)
-
     initial_cost = initial.total_cost
 
-    params = ALNSParams(**ALNS_PARAMS)
+    # --- ACO run ---
+    aco = FastUltraACO(instance, **ACO_PARAMS)
 
     start = time.time()
-    best = alns(
-        instance,
-        initial,
-        params,
-        iters=ITERS,
-        log_file="/dev/null"
-    )
+    best = aco.run(iterations=ACO_ITERS)
     runtime = time.time() - start
 
     final_cost = best.total_cost
@@ -122,7 +117,7 @@ def main():
                 for run in range(RUNS_PER_INSTANCE):
                     seed = SEED_BASE + run
 
-                    runtime, initial_cost, final_cost = run_single_alns(
+                    runtime, initial_cost, final_cost = run_single_aco(
                         instance_path,
                         seed
                     )
@@ -141,7 +136,7 @@ def main():
                     ])
 
                     print(
-                        f"[n={n}] {instance_path.name} | "
+                        f"[ACO | n={n}] {instance_path.name} | "
                         f"run {run} | "
                         f"{runtime:.1f}s | "
                         f"impr={improvement:.3f}"
