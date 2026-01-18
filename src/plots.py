@@ -374,8 +374,8 @@ def scaling_plot2():
     print(f"Fitted model: T(n) ≈ {a:.3e} · n^{alpha:.3f}")
 
     # Generate smooth fit line
-    #n_fit = np.linspace(n_vals.min(), n_vals.max(), 300)
-    #T_fit = a * n_fit ** alpha
+    n_fit = np.linspace(n_vals.min(), n_vals.max(), 300)
+    T_fit = a * n_fit ** alpha
 
     # === Plot ===
     plt.figure(figsize=(10, 6))
@@ -396,13 +396,13 @@ def scaling_plot2():
     )
 
     # Fitted scaling curve
-    #plt.plot(
-    #    n_fit,
-    #    T_fit,
-    #    "--",
-    #    linewidth=2,
-    #    label=fr"Fit: $T(n) \propto n^{{{alpha:.2f}}}$"
-    #)
+    plt.plot(
+        n_fit,
+        T_fit,
+        "--",
+        linewidth=2,
+        label=fr"Fit: $T(n) \propto n^{{{alpha:.2f}}}$"
+    )
 
     # plt.xscale("log")
     plt.yscale("log")
